@@ -106,7 +106,6 @@ if (!class_exists('Tykfyr\Linkable')) {
             foreach ($map as $word => $data) {
                 $normalizedMap[mb_strtolower($word)] = $data;
             }
-            $map = $normalizedMap;
 
             // Backup shortcodes
             $shortcodeMap = [];
@@ -125,12 +124,12 @@ if (!class_exists('Tykfyr\Linkable')) {
             }, $content);
 
             // Process <p>, <li>, <b>, <em>, <i>
-            $content = preg_replace_callback('/<(p|li|b|em|i)>(.*?)<\/\1>/is', function ($match) use (&$map, $post) {
+            $content = preg_replace_callback('/<(p|li|b|em|i)>(.*?)<\/\1>/is', function ($match) use (&$normalizedMap, $post) {
                 $tag = $match[1];
                 $text = $match[2];
                 $textLower = mb_strtolower($text);
 
-                foreach ($map as $word => $page) {
+                foreach ($normalizedMap as $word => $page) {
                     if ($page['postId'] === $post->ID) {
                         continue;
                     }
@@ -150,10 +149,10 @@ if (!class_exists('Tykfyr\Linkable')) {
 
                     if ($new !== $text) {
                         $text = $new;
-                        unset($map[$word]);
+                        unset($normalizedMap[$word]);
                     }
 
-                    if (empty($map)) {
+                    if (empty($normalizedMap)) {
                         break;
                     }
                 }
