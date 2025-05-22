@@ -34,8 +34,6 @@ if (!class_exists('Tykfyr\Linkable')) {
                     ]);
                 }
             });
-
-            add_filter('the_content', [$this, 'replaceable'], 20);
         }
 
         protected function getGlobalLinkableTagMap(): array
@@ -83,7 +81,7 @@ if (!class_exists('Tykfyr\Linkable')) {
             return $map;
         }
 
-        public function replaceable(string $content): string
+        public function linkable(string $content): string
         {
             if (!is_singular(['post', 'page'])) {
                 return $content;
@@ -194,7 +192,7 @@ if (!class_exists('Tykfyr\Linkable')) {
 
         public function init(): void
         {
-            add_filter('the_content', [$this, 'linkable']);
+            add_filter('the_content', [$this, 'linkable'], 20);
 
             add_action('enqueue_block_editor_assets', function () {
                 wp_enqueue_script(
@@ -205,11 +203,6 @@ if (!class_exists('Tykfyr\Linkable')) {
                     true
                 );
             });
-        }
-
-        public function linkable(string $content): string
-        {
-            return $content;
         }
     }
 
