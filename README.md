@@ -37,3 +37,17 @@ Go to **Settings > Linkable** to configure:
 |---------------------------|--------------------------------------------------|
 | Max links per post        | Limit how many times a target can be linked     |
 | Only link first keyword   | Avoid linking multiple matches of same keyword  |
+
+## 🤝 Contributing
+
+Contributions are very welcome!
+
+If you have ideas, improvements, or bug fixes:
+
+1. Fork the repository
+2. Create a new branch for your feature or fix
+3. Commit your changes with clear messages
+4. Open a **pull request** to `master`
+
+Please keep the code clean, documented, and consistent with the existing structure (camelCase, PSR-ish).  
+Let’s keep it lightweight and useful 🔧
