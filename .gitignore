@@ -1,0 +1,33 @@
+# 💡 WordPress plugin .gitignore
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Environment / config
+.env
+.env.local
+.env.production
+.env.testing
+
+# PHPStorm / JetBrains
+*.iml
+*.iws
+.idea/
+
+# Backup files
+*.bak
+*.old
+*.orig
+
+# Ignore hidden system files and metadata
+._*
