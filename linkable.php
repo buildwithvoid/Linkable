@@ -216,34 +216,64 @@ if (! class_exists('Void\Linkable')) {
         }
 
         /**
-         * Replaces matching words inside allowed HTML tags with links.
+         * Replaces matching words inside allowed HTML tags with internal links.
+         * Respects plugin settings for first match only and max links per target.
+         *
+         * @param string   $content
+         * @param array    $normalizedMap
+         * @param \WP_Post $post
+         * @return string
          */
         protected function replaceInContentBlocks(string $content, array $normalizedMap, \WP_Post $post): string
         {
-            return preg_replace_callback('/<(p|li|b|em|i)>(.*?)<\/\1>/is', function ($match) use (&$normalizedMap, $post) {
+            $firstOccurrenceOnly = $this->getSetting('first_occurrence_only', false);
+            $maxLinksPerTarget = (int) $this->getSetting('max_links_per_target', 1);
+
+            $linkCounts = [];
+
+            return preg_replace_callback('/<(p|li|b|em|i)>(.*?)<\/\1>/is', function ($match) use (&$normalizedMap, $post, &$linkCounts, $firstOccurrenceOnly, $maxLinksPerTarget) {
                 $tag = $match[1];
                 $text = $match[2];
                 $textLower = mb_strtolower($text);
 
                 foreach ($normalizedMap as $word => $page) {
                     if ($page['postId'] === $post->ID) {
+                        continue; // Don't link to self
+                    }
+
+                    // Skip if this target post has reached its max link count
+                    $linkCounts[$page['postId']] = $linkCounts[$page['postId']] ?? 0;
+                    if ($linkCounts[$page['postId']] >= $maxLinksPerTarget) {
                         continue;
                     }
+
                     if (mb_strpos($textLower, $word) === false) {
                         continue;
                     }
 
-                    $pattern = '/(?<!["\'>])(?<!\w)('.preg_quote($word, '/').')(?!\w)(?![^<]*?>)/iu';
+                    $pattern = '/(?<!["\'>])(?<!\w)(' . preg_quote($word, '/') . ')(?!\w)(?![^<]*?>)/iu';
+
                     $replacement = function ($m) use ($page) {
                         $title = htmlspecialchars($this->getPostYoastTitle($page['postId']), ENT_QUOTES, 'UTF-8');
-
-                        return '<a class="s-link" href="'.esc_url($page['url']).'" title="'.$title.'">'.$m[0].'</a>';
+                        return '<a class="s-link" href="' . esc_url($page['url']) . '" title="' . $title . '">' . $m[0] . '</a>';
                     };
 
-                    $newText = preg_replace_callback($pattern, $replacement, $text, 1);
+                    $limit = $firstOccurrenceOnly ? 1 : -1;
+
+                    $newText = preg_replace_callback($pattern, function ($m) use ($replacement, &$linkCounts, $page, $maxLinksPerTarget) {
+                        if ($linkCounts[$page['postId']] < $maxLinksPerTarget) {
+                            $linkCounts[$page['postId']]++;
+                            return $replacement($m);
+                        }
+
+                        return $m[0]; // No replacement if over the limit
+                    }, $text, $limit);
+
                     if ($newText !== $text) {
                         $text = $newText;
-                        unset($normalizedMap[$word]);
+                        if ($firstOccurrenceOnly) {
+                            unset($normalizedMap[$word]);
+                        }
                     }
 
                     if (empty($normalizedMap)) {
@@ -254,7 +284,6 @@ if (! class_exists('Void\Linkable')) {
                 return "<$tag>$text</$tag>";
             }, $content);
         }
-
         /**
          * Attempts to retrieve the Yoast SEO title for a given post.
          * Falls back to the WordPress title if Yoast is not installed or a table is missing.
