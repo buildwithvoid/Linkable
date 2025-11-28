@@ -1,0 +1,51 @@
+name: Deploy to WordPress.org
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install SVN
+        run: sudo apt-get update && sudo apt-get install -y subversion
+
+      - name: Prepare SVN repo
+        env:
+          PLUGIN_SLUG: linkable
+        run: |
+          svn co "https://plugins.svn.wordpress.org/$PLUGIN_SLUG" svn-wporg
+          rm -rf svn-wporg/trunk/*
+          rsync -rc --exclude='.git' --exclude='.github' ./ svn-wporg/trunk/
+
+      - name: Create tag in SVN
+        env:
+          PLUGIN_SLUG: linkable
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          cd svn-wporg
+          rm -rf "tags/$VERSION"
+          mkdir -p "tags/$VERSION"
+          rsync -rc trunk/ "tags/$VERSION/"
+
+      - name: Commit and push to WordPress.org
+        env:
+          WPORG_USERNAME: ${{ secrets.WPORG_USERNAME }}
+          WPORG_PASSWORD: ${{ secrets.WPORG_PASSWORD }}
+        run: |
+          cd svn-wporg
+          svn status
+          svn add * --force
+          svn status
+
+          # Commit til WP.org
+          svn commit \
+            --username "$WPORG_USERNAME" \
+            --password "$WPORG_PASSWORD" \
+            -m "Deploy version ${GITHUB_REF#refs/tags/}"
