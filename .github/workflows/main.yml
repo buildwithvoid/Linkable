@@ -3,7 +3,7 @@ name: Deploy to WordPress.org
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'   # fx v1.0.1
 
 jobs:
   deploy:
@@ -21,18 +21,27 @@ jobs:
           PLUGIN_SLUG: linkable
         run: |
           svn co "https://plugins.svn.wordpress.org/$PLUGIN_SLUG" svn-wporg
+          # Ryd trunk og sync fra GitHub
           rm -rf svn-wporg/trunk/*
-          rsync -rc --exclude='.git' --exclude='.github' ./ svn-wporg/trunk/
+          rsync -rc --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            ./ svn-wporg/trunk/
 
       - name: Create tag in SVN
         env:
           PLUGIN_SLUG: linkable
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
+          VERSION="${GITHUB_REF#refs/tags/v}"   # v1.0.1 -> 1.0.1
           cd svn-wporg
-          rm -rf "tags/$VERSION"
-          mkdir -p "tags/$VERSION"
-          rsync -rc trunk/ "tags/$VERSION/"
+
+          # Hvis tag allerede findes, så fjern det først
+          if [ -d "tags/$VERSION" ]; then
+            svn rm "tags/$VERSION"
+          fi
+
+          # Opret tag som en ren kopi af trunk
+          svn cp trunk "tags/$VERSION"
 
       - name: Commit and push to WordPress.org
         env:
@@ -44,8 +53,9 @@ jobs:
           svn add * --force
           svn status
 
-          # Commit til WP.org
           svn commit \
             --username "$WPORG_USERNAME" \
             --password "$WPORG_PASSWORD" \
-            -m "Deploy version ${GITHUB_REF#refs/tags/}"
+            --non-interactive \
+            --no-auth-cache \
+            -m "Deploy version ${GITHUB_REF#refs/tags/v}"
