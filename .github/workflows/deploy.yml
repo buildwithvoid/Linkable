@@ -1,0 +1,70 @@
+name: Deploy to WordPress.org
+
+on:
+  push:
+    tags:
+      - 'v*'   # fx v1.0.2
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install SVN
+        run: sudo apt-get update && sudo apt-get install -y subversion
+
+      - name: Checkout SVN repo and sync trunk
+        env:
+          PLUGIN_SLUG: linkable
+        run: |
+          svn co "https://plugins.svn.wordpress.org/$PLUGIN_SLUG" svn-wporg
+
+          cd svn-wporg
+
+          # Ryd trunk og sync fra GitHub
+          rm -rf trunk/*
+          cd ..
+          rsync -rc --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            ./ svn-wporg/trunk/
+
+      - name: Create SVN tag from trunk
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"   # v1.0.2 -> 1.0.2
+          cd svn-wporg
+
+          # Fjern gammel defekt tag hvis den findes
+          if [ -d "tags/.1.0.1" ]; then
+            echo "Removing malformed tag directory tags/.1.0.1"
+            svn rm "tags/.1.0.1" || true
+          fi
+
+          # Fjern eksisterende tag for samme version (hvis den findes)
+          if [ -d "tags/$VERSION" ]; then
+            svn rm "tags/$VERSION"
+          fi
+
+          # Opret korrekt tag som kopi af trunk
+          svn cp trunk "tags/$VERSION"
+
+      - name: Commit and push to WordPress.org
+        env:
+          WPORG_USERNAME: ${{ secrets.WPORG_USERNAME }}
+          WPORG_PASSWORD: ${{ secrets.WPORG_PASSWORD }}
+        run: |
+          cd svn-wporg
+
+          svn status
+          svn add * --force
+          svn status
+
+          svn commit \
+            --username "$WPORG_USERNAME" \
+            --password "$WPORG_PASSWORD" \
+            --non-interactive \
+            --no-auth-cache \
+            -m "Deploy version ${GITHUB_REF#refs/tags/v}"
